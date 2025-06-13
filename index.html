@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>LDC Book Secure</title>
+  <title>LDC Book Secure (Google Login)</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     body { background-color: #f8f9fa; }
     .customer-card { margin-bottom: 15px; cursor: pointer; transition: 0.2s; }
@@ -12,13 +13,23 @@
     .transaction-list { max-height: 300px; overflow-y: auto; }
     .credit { color: green; }
     .debit { color: red; }
-    #mainContent { display: none; }
+    #mainContent, #passwordModal { display: none; }
   </style>
 </head>
 <body>
 
+<!-- Google Sign-In -->
+<div id="googleSignInDiv" class="d-flex justify-content-center align-items-center vh-100">
+  <div id="g_id_onload"
+       data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+       data-callback="handleCredentialResponse"
+       data-auto_prompt="true">
+  </div>
+  <div class="g_id_signin" data-type="standard" data-size="large"></div>
+</div>
+
 <!-- Password Modal -->
-<div class="modal fade show" id="passwordModal" tabindex="-1" aria-labelledby="passwordModalLabel" aria-hidden="true" style="display: block;">
+<div class="modal fade show" id="passwordModal" tabindex="-1" aria-hidden="true" style="display: block;">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
@@ -43,7 +54,7 @@
     <button class="btn btn-success" onclick="addCustomer()">Add</button>
   </div>
 
-  <div class="row text-center mb-4 owner-only">
+  <div class="row text-center mb-4">
     <div class="col-4">
       <div class="p-3 bg-success text-white rounded">
         <h6>Total Credit</h6><h4>₹<span id="totalCredit">0</span></h4>
@@ -65,12 +76,12 @@
 </div>
 
 <!-- Customer Modal -->
-<div class="modal fade" id="customerModal" tabindex="-1" aria-labelledby="customerModalLabel" aria-hidden="true">
+<div class="modal fade" id="customerModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
         <button class="btn btn-light border me-2" onclick="backToList()">← Back</button>
-        <h5 class="modal-title mb-0" id="customerModalLabel">Customer Details</h5>
+        <h5 class="modal-title mb-0">Customer Details</h5>
       </div>
       <div class="modal-body">
         <input type="text" id="editCustomerName" class="form-control mb-2 owner-only">
@@ -98,24 +109,61 @@
   </div>
 </div>
 
+<!-- Edit Date Modal -->
+<div class="modal fade" id="editDateModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5>Edit Transaction Date</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="datetime-local" id="editDateInput" class="form-control mb-3">
+        <button class="btn btn-success w-100" onclick="saveEditedDate()">Save Date</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-let customers = JSON.parse(localStorage.getItem('customers')) || [];
+let userEmail = null;
+let customers = [];
 let selectedCustomerIndex = null;
 let editingTransactionIndex = null;
 let isReadOnly = false;
-let sharedCustomer = null;
 
-window.onload = () => {
-  loadSharedData();
-  if (!sharedCustomer) {
-    updateCustomerList();
-    updateSummary();
-  }
-};
+// Google Sign-In callback
+function handleCredentialResponse(response) {
+  const decoded = parseJwt(response.credential);
+  userEmail = decoded.email;
+  document.getElementById("googleSignInDiv").style.display = "none";
+  document.getElementById("passwordModal").style.display = "block";
+  loadUserData();
+}
 
-// Password Protection
+function parseJwt(token) {
+  const base64Url = token.split('.')[1];
+  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+  const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+  }).join(''));
+  return JSON.parse(jsonPayload);
+}
+
+function loadUserData() {
+  const saved = localStorage.getItem('customers_' + userEmail);
+  customers = saved ? JSON.parse(saved) : [];
+  updateCustomerList();
+  updateSummary();
+}
+
+function saveUserData() {
+  localStorage.setItem('customers_' + userEmail, JSON.stringify(customers));
+}
+
+// Password protection
 function checkPassword() {
   const password = document.getElementById("passwordInput").value;
   const correctPassword = "1234";
@@ -138,9 +186,8 @@ function enterReadOnly() {
 function addCustomer() {
   const name = document.getElementById("newCustomer").value.trim();
   if (!name) return alert("Enter customer name");
-
   customers.push({ name, transactions: [] });
-  localStorage.setItem("customers", JSON.stringify(customers));
+  saveUserData();
   document.getElementById("newCustomer").value = "";
   updateCustomerList();
 }
@@ -167,7 +214,6 @@ function updateCustomerList() {
 
 function updateSummary() {
   let totalCredit = 0, totalDebit = 0;
-
   customers.forEach(customer => {
     customer.transactions.forEach(t => {
       if (t.type === 'credit') totalCredit += t.amount;
@@ -183,10 +229,8 @@ function updateSummary() {
 function openCustomer(index) {
   selectedCustomerIndex = index;
   const customer = customers[index];
-
   document.getElementById("editCustomerName").value = customer.name;
   document.getElementById("modalBalance").innerText = calculateBalance(customer.transactions);
-
   const transactionsDiv = document.getElementById("modalTransactions");
   transactionsDiv.innerHTML = "";
 
@@ -194,12 +238,10 @@ function openCustomer(index) {
     const item = document.createElement("div");
     item.className = "d-flex justify-content-between border-bottom py-2";
     item.innerHTML = `
-      <div>
-        <strong class="${t.type}">₹${t.amount}</strong> 
-        <small>(${new Date(t.date).toLocaleString()})</small>
-      </div>
+      <div><strong class="${t.type}">₹${t.amount}</strong> <small>(${new Date(t.date).toLocaleString()})</small></div>
       ${isReadOnly ? "" : `
       <div>
+        <button class="btn btn-sm btn-outline-secondary me-1" onclick="editDate(${i})">📅</button>
         <button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction(${i})">🗑️</button>
       </div>`}
     `;
@@ -216,9 +258,8 @@ function calculateBalance(transactions) {
 function saveCustomerName() {
   const newName = document.getElementById("editCustomerName").value.trim();
   if (!newName) return alert("Enter valid name");
-
   customers[selectedCustomerIndex].name = newName;
-  localStorage.setItem("customers", JSON.stringify(customers));
+  saveUserData();
   updateCustomerList();
   openCustomer(selectedCustomerIndex);
 }
@@ -226,7 +267,7 @@ function saveCustomerName() {
 function deleteCustomer() {
   if (confirm("Are you sure you want to delete this customer?")) {
     customers.splice(selectedCustomerIndex, 1);
-    localStorage.setItem("customers", JSON.stringify(customers));
+    saveUserData();
     document.querySelector(".modal.show").classList.remove("show");
     document.querySelector(".modal-backdrop").remove();
     updateCustomerList();
@@ -236,14 +277,9 @@ function deleteCustomer() {
 function addModalTransaction() {
   const amount = parseFloat(document.getElementById("modalAmount").value);
   const type = document.getElementById("modalType").value;
-
   if (isNaN(amount) || amount <= 0) return alert("Enter valid amount");
-
-  customers[selectedCustomerIndex].transactions.push({
-    amount, type, date: new Date().toISOString()
-  });
-
-  localStorage.setItem("customers", JSON.stringify(customers));
+  customers[selectedCustomerIndex].transactions.push({ amount, type, date: new Date().toISOString() });
+  saveUserData();
   document.getElementById("modalAmount").value = "";
   openCustomer(selectedCustomerIndex);
   updateCustomerList();
@@ -251,16 +287,28 @@ function addModalTransaction() {
 
 function deleteTransaction(index) {
   customers[selectedCustomerIndex].transactions.splice(index, 1);
-  localStorage.setItem("customers", JSON.stringify(customers));
+  saveUserData();
   openCustomer(selectedCustomerIndex);
   updateCustomerList();
 }
 
+function editDate(index) {
+  editingTransactionIndex = index;
+  const t = customers[selectedCustomerIndex].transactions[index];
+  document.getElementById("editDateInput").value = t.date.substring(0, 16);
+  new bootstrap.Modal(document.getElementById("editDateModal")).show();
+}
+
+function saveEditedDate() {
+  const newDate = document.getElementById("editDateInput").value;
+  if (!newDate) return alert("Select valid date");
+  customers[selectedCustomerIndex].transactions[editingTransactionIndex].date = new Date(newDate).toISOString();
+  saveUserData();
+  bootstrap.Modal.getInstance(document.getElementById("editDateModal")).hide();
+  openCustomer(selectedCustomerIndex);
+}
+
 function shareCustomer() {
-  if (sharedCustomer) {
-    alert("You are already viewing a shared link.");
-    return;
-  }
   const customer = customers[selectedCustomerIndex];
   const dataStr = btoa(JSON.stringify(customer));
   const url = `${window.location.origin}${window.location.pathname}?data=${dataStr}`;
@@ -269,60 +317,6 @@ function shareCustomer() {
 
 function backToList() {
   bootstrap.Modal.getInstance(document.getElementById("customerModal")).hide();
-}
-
-function loadSharedData() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const dataParam = urlParams.get("data");
-  if (dataParam) {
-    try {
-      sharedCustomer = JSON.parse(atob(dataParam));
-      document.getElementById("passwordModal").style.display = "none";
-      document.getElementById("mainContent").style.display = "block";
-      isReadOnly = true;
-      document.querySelectorAll('.owner-only').forEach(el => el.style.display = 'none');
-      showSharedCustomer();
-    } catch (e) {
-      console.error("Failed to load shared data:", e);
-    }
-  }
-}
-
-function showSharedCustomer() {
-  const list = document.getElementById("customerList");
-  list.innerHTML = "";
-
-  const balance = calculateBalance(sharedCustomer.transactions);
-  const card = document.createElement("div");
-  card.className = "card customer-card";
-  card.innerHTML = `
-    <div class="card-body d-flex justify-content-between align-items-center">
-      <h5 class="mb-0">${sharedCustomer.name}</h5>
-      <h5 class="mb-0">₹${balance}</h5>
-    </div>`;
-  card.onclick = () => openSharedCustomer();
-  list.appendChild(card);
-}
-
-function openSharedCustomer() {
-  document.getElementById("editCustomerName").value = sharedCustomer.name;
-  document.getElementById("modalBalance").innerText = calculateBalance(sharedCustomer.transactions);
-
-  const transactionsDiv = document.getElementById("modalTransactions");
-  transactionsDiv.innerHTML = "";
-
-  sharedCustomer.transactions.forEach((t) => {
-    const item = document.createElement("div");
-    item.className = "d-flex justify-content-between border-bottom py-2";
-    item.innerHTML = `
-      <div>
-        <strong class="${t.type}">₹${t.amount}</strong> 
-        <small>(${new Date(t.date).toLocaleString()})</small>
-      </div>`;
-    transactionsDiv.appendChild(item);
-  });
-
-  new bootstrap.Modal(document.getElementById("customerModal")).show();
 }
 </script>
 
