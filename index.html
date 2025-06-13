@@ -3,55 +3,59 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>LDC Book Secure (Google Login)</title>
+  <title>LDC BOOK - Final Version</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     body { background-color: #f8f9fa; }
     .customer-card { margin-bottom: 15px; cursor: pointer; transition: 0.2s; }
     .customer-card:hover { transform: scale(1.02); }
-    .transaction-list { max-height: 300px; overflow-y: auto; }
     .credit { color: green; }
     .debit { color: red; }
-    #mainContent, #passwordModal { display: none; }
+    .header-bar { background: #007bff; color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
+    .transaction-list { max-height: 300px; overflow-y: auto; }
+    .owner-only { display: none; }
+    .balance-field { width: 120px; text-align: right; font-family: monospace; }
+    .modal-header h5 { font-weight: bold; }
   </style>
 </head>
 <body>
 
-<!-- Google Sign-In -->
-<div id="googleSignInDiv" class="d-flex justify-content-center align-items-center vh-100">
-  <div id="g_id_onload"
-       data-client_id="1234567890-abc123def456.apps.googleusercontent.com"
-       data-callback="handleCredentialResponse"
-       data-auto_prompt="true">
-  </div>
-  <div class="g_id_signin" data-type="standard" data-size="large"></div>
-</div>
-
-<!-- Password Modal -->
-<div class="modal fade show" id="passwordModal" tabindex="-1" aria-hidden="true" style="display: block;">
+<!-- Login Modal -->
+<div class="modal fade show" id="loginModal" tabindex="-1" style="display:block;" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Enter Password</h5>
+      <div class="modal-header justify-content-center">
+        <h3 class="fw-bold text-primary">📒 LDC BOOK</h3>
       </div>
       <div class="modal-body">
+        <input type="text" id="phoneInput" class="form-control mb-2" placeholder="Phone Number">
         <input type="password" id="passwordInput" class="form-control mb-3" placeholder="Password">
-        <button class="btn btn-primary w-100" onclick="checkPassword()">Enter</button>
-        <div id="wrongPass" class="text-danger mt-2" style="display:none;">Wrong Password!</div>
-        <button class="btn btn-outline-secondary w-100 mt-3" onclick="enterReadOnly()">View Only</button>
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" id="rememberMe"> Remember Me
+        </div>
+        <button class="btn btn-primary w-100 mb-2" onclick="checkLogin()">Login</button>
+        <div id="loginError" class="text-danger mb-2" style="display:none;"></div>
+        <button class="btn btn-outline-secondary w-100 mb-2" onclick="enterReadOnly()">View Only</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Main Content -->
-<div id="mainContent" class="container my-4">
-  <h1 class="text-center mb-4">📒 LDC Book</h1>
+<!-- Header -->
+<div class="header-bar" id="headerBar" style="display:none;">
+  <h4 class="mb-0">📒 LDC BOOK</h4>
+  <div>
+    <button class="btn btn-warning btn-sm me-2 owner-only" onclick="exportData()">Backup</button>
+    <button class="btn btn-info btn-sm me-2 owner-only" onclick="importData()">Restore</button>
+    <button class="btn btn-light btn-sm" onclick="logout()">Logout</button>
+  </div>
+</div>
 
-  <div class="input-group mb-3 owner-only">
-    <input type="text" id="newCustomer" class="form-control" placeholder="Customer Name">
-    <button class="btn btn-success" onclick="addCustomer()">Add</button>
+<!-- Main Content -->
+<div id="mainContent" class="container my-4" style="display:none;">
+  <div class="d-flex justify-content-between mb-3">
+    <input type="text" id="searchInput" class="form-control me-2" placeholder="Search" oninput="updateCustomerList()">
+    <button class="btn btn-success owner-only" onclick="showAddCustomer()">+ Add Customer</button>
   </div>
 
   <div class="row text-center mb-4">
@@ -75,250 +79,277 @@
   <div id="customerList"></div>
 </div>
 
+<!-- Add Customer Modal -->
+<div class="modal fade" id="addCustomerModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header"><h5>Add Customer</h5></div>
+      <div class="modal-body">
+        <input type="text" id="newName" class="form-control mb-2" placeholder="Customer Name">
+        <input type="text" id="newPhone" class="form-control mb-3" placeholder="Phone Number (10 digits)">
+        <button class="btn btn-success w-100" onclick="addCustomer()">Add Customer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Customer Modal -->
-<div class="modal fade" id="customerModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="customerModal" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <button class="btn btn-light border me-2" onclick="backToList()">← Back</button>
-        <h5 class="modal-title mb-0">Customer Details</h5>
+        <h5>Customer Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="closeCustomerModal()"></button>
       </div>
       <div class="modal-body">
-        <input type="text" id="editCustomerName" class="form-control mb-2 owner-only">
-        <button class="btn btn-primary btn-sm mb-3 owner-only" onclick="saveCustomerName()">Save Name</button>
-        <button class="btn btn-danger btn-sm mb-3 ms-2 owner-only" onclick="deleteCustomer()">Delete Customer</button>
+        <input type="text" id="editName" class="form-control mb-2 owner-only" placeholder="Customer Name">
+        <input type="text" id="editPhone" class="form-control mb-3 owner-only" placeholder="Phone Number">
+        <button class="btn btn-primary w-100 mb-3 owner-only" onclick="updateCustomer()">Update Customer</button>
+
         <h5>Balance: ₹<span id="modalBalance">0</span></h5>
 
-        <div class="input-group mb-3 owner-only">
-          <input type="number" id="modalAmount" class="form-control" placeholder="Amount">
-          <select id="modalType" class="form-select">
-            <option value="credit">Credit</option>
-            <option value="debit">Debit</option>
-          </select>
-          <button class="btn btn-primary" onclick="addModalTransaction()">Add</button>
+        <div class="row mb-3 owner-only">
+          <div class="col-md-2 mb-1">
+            <input type="number" id="txnAmount" class="form-control" placeholder="Amount">
+          </div>
+          <div class="col-md-2 mb-1">
+            <select id="txnType" class="form-select">
+              <option value="credit">Credit</option>
+              <option value="debit">Debit</option>
+            </select>
+          </div>
+          <div class="col-md-4 mb-1">
+            <input type="datetime-local" id="txnDate" class="form-control">
+          </div>
+          <div class="col-md-2 mb-1">
+            <button class="btn btn-primary w-100" onclick="addTransaction()">Add</button>
+          </div>
         </div>
 
-        <div class="transaction-list" id="modalTransactions"></div>
+        <div class="transaction-list" id="txnList"></div>
 
-        <div class="mt-3">
-          <button class="btn btn-outline-primary w-100" onclick="shareCustomer()">Generate Shareable Link</button>
-          <input type="text" id="shareableLink" class="form-control mt-2" readonly>
+        <div class="owner-only mt-3">
+          <button class="btn btn-danger w-100" onclick="deleteCustomer()">Delete Customer</button>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Edit Date Modal -->
-<div class="modal fade" id="editDateModal" tabindex="-1" aria-hidden="true">
+<!-- Edit Transaction Modal -->
+<div class="modal fade" id="editTxnModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5>Edit Transaction Date</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
+      <div class="modal-header"><h5>Edit Transaction</h5></div>
       <div class="modal-body">
-        <input type="datetime-local" id="editDateInput" class="form-control mb-3">
-        <button class="btn btn-success w-100" onclick="saveEditedDate()">Save Date</button>
+        <input type="number" id="editTxnAmount" class="form-control mb-2" placeholder="Amount">
+        <select id="editTxnType" class="form-select mb-2">
+          <option value="credit">Credit</option>
+          <option value="debit">Debit</option>
+        </select>
+        <input type="datetime-local" id="editTxnDate" class="form-control mb-3">
+        <button class="btn btn-success w-100" onclick="saveEditedTransaction()">Save Changes</button>
       </div>
     </div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
 <script>
-let userEmail = null;
-let customers = [];
+let customers = JSON.parse(localStorage.getItem("customers") || "[]");
 let selectedCustomerIndex = null;
-let editingTransactionIndex = null;
-let isReadOnly = false;
+let editTxnIndex = null;
+let isOwner = false;
+const allowedPhones = { "9748665475":"1234", "9062538991":"1234", "9748144920":"1234" };
 
-// Google Sign-In callback
-function handleCredentialResponse(response) {
-  const decoded = parseJwt(response.credential);
-  userEmail = decoded.email;
-  document.getElementById("googleSignInDiv").style.display = "none";
-  document.getElementById("passwordModal").style.display = "block";
-  loadUserData();
-}
-
-function parseJwt(token) {
-  const base64Url = token.split('.')[1];
-  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-  const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
-      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-  }).join(''));
-  return JSON.parse(jsonPayload);
-}
-
-function loadUserData() {
-  const saved = localStorage.getItem('customers_' + userEmail);
-  customers = saved ? JSON.parse(saved) : [];
-  updateCustomerList();
-  updateSummary();
-}
-
-function saveUserData() {
-  localStorage.setItem('customers_' + userEmail, JSON.stringify(customers));
-}
-
-// Password protection
-function checkPassword() {
-  const password = document.getElementById("passwordInput").value;
-  const correctPassword = "1234";
-
-  if (password === correctPassword) {
-    document.getElementById("passwordModal").style.display = "none";
-    document.getElementById("mainContent").style.display = "block";
-  } else {
-    document.getElementById("wrongPass").style.display = "block";
+window.onload = () => { 
+  const savedPhone = localStorage.getItem("savedPhone");
+  const savedPass = localStorage.getItem("savedPass");
+  if(savedPhone && savedPass) {
+    phoneInput.value = savedPhone;
+    passwordInput.value = savedPass;
+    checkLogin(true);
   }
+  updateCustomerList(); updateSummary();
+  window.onpopstate = handlePopState;
+  handlePopState();
+};
+
+function checkLogin(auto = false) {
+  const phone = phoneInput.value.trim(), pass = passwordInput.value.trim();
+  if (allowedPhones[phone] === pass) {
+    isOwner = true;
+    document.querySelectorAll('.owner-only').forEach(e=>e.style.display='block');
+    if (!auto && rememberMe.checked) {
+      localStorage.setItem("savedPhone", phone);
+      localStorage.setItem("savedPass", pass);
+    }
+    openApp();
+  } else if (!auto) showError("Invalid credentials.");
 }
 
-function enterReadOnly() {
-  isReadOnly = true;
-  document.getElementById("passwordModal").style.display = "none";
-  document.getElementById("mainContent").style.display = "block";
-  document.querySelectorAll('.owner-only').forEach(el => el.style.display = 'none');
+function showError(msg){ loginError.textContent=msg; loginError.style.display="block"; }
+function enterReadOnly(){ openApp(); }
+function openApp() {
+  loginModal.style.display="none";
+  headerBar.style.display="flex";
+  mainContent.style.display="block";
 }
 
-function addCustomer() {
-  const name = document.getElementById("newCustomer").value.trim();
-  if (!name) return alert("Enter customer name");
-  customers.push({ name, transactions: [] });
-  saveUserData();
-  document.getElementById("newCustomer").value = "";
-  updateCustomerList();
-}
+function logout(){ localStorage.removeItem("savedPhone"); localStorage.removeItem("savedPass"); location.reload(); }
 
 function updateCustomerList() {
-  const list = document.getElementById("customerList");
-  list.innerHTML = "";
-
-  customers.forEach((customer, index) => {
-    const balance = calculateBalance(customer.transactions);
-    const card = document.createElement("div");
-    card.className = "card customer-card";
-    card.onclick = () => openCustomer(index);
-    card.innerHTML = `
+  const listDiv = customerList;
+  listDiv.innerHTML = "";
+  let filtered = customers.filter(c => c.name.toLowerCase().includes(searchInput.value.toLowerCase())).sort((a,b) => a.name.localeCompare(b.name));
+  filtered.forEach((c, i) => {
+    const bal = calculateBalance(c);
+    listDiv.innerHTML += `<div class="card customer-card" onclick="navigateToCustomer(${i})">
       <div class="card-body d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">${customer.name}</h5>
-        <h5 class="mb-0">₹${balance}</h5>
-      </div>`;
-    list.appendChild(card);
+        <div><h5>${c.name}</h5><p>${c.phone}</p></div>
+        <h5 class="${bal>=0?'credit':'debit'} balance-field">₹${bal.toLocaleString()}</h5>
+      </div></div>`;
   });
-
-  updateSummary();
 }
 
-function updateSummary() {
-  let totalCredit = 0, totalDebit = 0;
-  customers.forEach(customer => {
-    customer.transactions.forEach(t => {
-      if (t.type === 'credit') totalCredit += t.amount;
-      else totalDebit += t.amount;
-    });
-  });
-
-  document.getElementById("totalCredit").innerText = totalCredit;
-  document.getElementById("totalDebit").innerText = totalDebit;
-  document.getElementById("totalBalance").innerText = totalCredit - totalDebit;
+function calculateBalance(c){ return c.transactions.reduce((s,t)=>s+(t.type==="credit"?t.amount:-t.amount),0); }
+function updateSummary(){
+  let cr=0, dr=0;
+  customers.forEach(c => c.transactions.forEach(t => t.type==="credit"?cr+=t.amount:dr+=t.amount));
+  totalCredit.textContent=cr.toLocaleString();
+  totalDebit.textContent=dr.toLocaleString();
+  totalBalance.textContent=(cr-dr).toLocaleString();
 }
 
-function openCustomer(index) {
-  selectedCustomerIndex = index;
-  const customer = customers[index];
-  document.getElementById("editCustomerName").value = customer.name;
-  document.getElementById("modalBalance").innerText = calculateBalance(customer.transactions);
-  const transactionsDiv = document.getElementById("modalTransactions");
-  transactionsDiv.innerHTML = "";
-
-  customer.transactions.forEach((t, i) => {
-    const item = document.createElement("div");
-    item.className = "d-flex justify-content-between border-bottom py-2";
-    item.innerHTML = `
-      <div><strong class="${t.type}">₹${t.amount}</strong> <small>(${new Date(t.date).toLocaleString()})</small></div>
-      ${isReadOnly ? "" : `
-      <div>
-        <button class="btn btn-sm btn-outline-secondary me-1" onclick="editDate(${i})">📅</button>
-        <button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction(${i})">🗑️</button>
-      </div>`}
-    `;
-    transactionsDiv.appendChild(item);
-  });
-
-  new bootstrap.Modal(document.getElementById("customerModal")).show();
+function showAddCustomer(){ new bootstrap.Modal(addCustomerModal).show(); }
+function addCustomer() {
+  const name = newName.value.trim(), phone = newPhone.value.trim();
+  if (!name || !/^\d{10}$/.test(phone)) return alert("Valid name & 10-digit phone required.");
+  if (customers.some(c=>c.phone===phone)) return alert("Phone exists.");
+  customers.push({ name, phone, transactions: [] });
+  saveData();
+  bootstrap.Modal.getInstance(addCustomerModal).hide();
+  newName.value = ""; newPhone.value = "";
 }
 
-function calculateBalance(transactions) {
-  return transactions.reduce((sum, t) => t.type === "credit" ? sum + t.amount : sum - t.amount, 0);
+function navigateToCustomer(i){
+  history.pushState({customer:i}, "", `#customer/${i}`);
+  openCustomer(i);
 }
 
-function saveCustomerName() {
-  const newName = document.getElementById("editCustomerName").value.trim();
-  if (!newName) return alert("Enter valid name");
-  customers[selectedCustomerIndex].name = newName;
-  saveUserData();
-  updateCustomerList();
-  openCustomer(selectedCustomerIndex);
-}
-
-function deleteCustomer() {
-  if (confirm("Are you sure you want to delete this customer?")) {
-    customers.splice(selectedCustomerIndex, 1);
-    saveUserData();
-    document.querySelector(".modal.show").classList.remove("show");
-    document.querySelector(".modal-backdrop").remove();
-    updateCustomerList();
+function handlePopState() {
+  const hash = window.location.hash;
+  if (hash.startsWith("#customer/")) {
+    const i = parseInt(hash.split("/")[1]);
+    if (!isNaN(i)) openCustomer(i);
+  } else {
+    closeCustomerModal();
   }
 }
 
-function addModalTransaction() {
-  const amount = parseFloat(document.getElementById("modalAmount").value);
-  const type = document.getElementById("modalType").value;
-  if (isNaN(amount) || amount <= 0) return alert("Enter valid amount");
-  customers[selectedCustomerIndex].transactions.push({ amount, type, date: new Date().toISOString() });
-  saveUserData();
-  document.getElementById("modalAmount").value = "";
+function openCustomer(i){
+  selectedCustomerIndex = i;
+  const c = customers[i];
+  editName.value = c.name;
+  editPhone.value = c.phone;
+  modalBalance.textContent = calculateBalance(c).toLocaleString();
+  txnDate.value = new Date().toISOString().slice(0,16);
+  txnList.innerHTML = c.transactions.map((t,index)=>`<div class="border-bottom py-1 ${t.type}">
+    ${t.type.toUpperCase()}: ₹${t.amount.toLocaleString()} - ${t.date}
+    ${isOwner ? `<button class="btn btn-sm btn-outline-primary ms-2" onclick="editTransaction(${index})">Edit</button>
+    <button class="btn btn-sm btn-outline-danger ms-2" onclick="deleteTransaction(${index})">Delete</button>`: ''}</div>`).reverse().join('');
+  new bootstrap.Modal(customerModal).show();
+}
+
+function closeCustomerModal(){
+  const modal = bootstrap.Modal.getInstance(customerModal);
+  if (modal) modal.hide();
+}
+
+function updateCustomer(){
+  const name = editName.value.trim(), phone = editPhone.value.trim();
+  if (!name || !/^\d{10}$/.test(phone)) return alert("Valid name & 10-digit phone required.");
+  if (customers.some((c,i)=>i!==selectedCustomerIndex && c.phone===phone)) return alert("Phone exists.");
+  customers[selectedCustomerIndex].name = name;
+  customers[selectedCustomerIndex].phone = phone;
+  saveData();
+  closeCustomerModal();
+}
+
+function addTransaction(){
+  const amount = parseFloat(txnAmount.value), type = txnType.value, date = txnDate.value;
+  if (!amount || !date) return alert("Amount & Date required.");
+  if (amount <= 0) return alert("Amount must be positive.");
+  customers[selectedCustomerIndex].transactions.push({ amount, type, date });
+  saveData();
   openCustomer(selectedCustomerIndex);
+}
+
+function deleteCustomer(){
+  if (confirm("Delete customer?")) {
+    customers.splice(selectedCustomerIndex,1);
+    saveData();
+    closeCustomerModal();
+  }
+}
+
+function deleteTransaction(index){
+  if(confirm("Delete this transaction?")){
+    customers[selectedCustomerIndex].transactions.splice(index,1);
+    saveData();
+    openCustomer(selectedCustomerIndex);
+  }
+}
+
+function editTransaction(index){
+  editTxnIndex = index;
+  const txn = customers[selectedCustomerIndex].transactions[index];
+  editTxnAmount.value = txn.amount;
+  editTxnType.value = txn.type;
+  editTxnDate.value = txn.date;
+  new bootstrap.Modal(editTxnModal).show();
+}
+
+function saveEditedTransaction(){
+  const amount = parseFloat(editTxnAmount.value), type = editTxnType.value, date = editTxnDate.value;
+  if (!amount || !date) return alert("Amount & Date required.");
+  customers[selectedCustomerIndex].transactions[editTxnIndex] = { amount, type, date };
+  saveData();
+  bootstrap.Modal.getInstance(editTxnModal).hide();
+  openCustomer(selectedCustomerIndex);
+}
+
+function saveData(){
+  localStorage.setItem("customers", JSON.stringify(customers));
   updateCustomerList();
+  updateSummary();
 }
 
-function deleteTransaction(index) {
-  customers[selectedCustomerIndex].transactions.splice(index, 1);
-  saveUserData();
-  openCustomer(selectedCustomerIndex);
-  updateCustomerList();
+function exportData(){
+  const blob = new Blob([JSON.stringify(customers)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const dateStr = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = `LDC-Backup-${dateStr}.json`; a.click();
+  URL.revokeObjectURL(url);
 }
 
-function editDate(index) {
-  editingTransactionIndex = index;
-  const t = customers[selectedCustomerIndex].transactions[index];
-  document.getElementById("editDateInput").value = t.date.substring(0, 16);
-  new bootstrap.Modal(document.getElementById("editDateModal")).show();
-}
-
-function saveEditedDate() {
-  const newDate = document.getElementById("editDateInput").value;
-  if (!newDate) return alert("Select valid date");
-  customers[selectedCustomerIndex].transactions[editingTransactionIndex].date = new Date(newDate).toISOString();
-  saveUserData();
-  bootstrap.Modal.getInstance(document.getElementById("editDateModal")).hide();
-  openCustomer(selectedCustomerIndex);
-}
-
-function shareCustomer() {
-  const customer = customers[selectedCustomerIndex];
-  const dataStr = btoa(JSON.stringify(customer));
-  const url = `${window.location.origin}${window.location.pathname}?data=${dataStr}`;
-  document.getElementById("shareableLink").value = url;
-}
-
-function backToList() {
-  bootstrap.Modal.getInstance(document.getElementById("customerModal")).hide();
+function importData(){
+  const input = document.createElement("input");
+  input.type="file";
+  input.onchange = e=>{
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try {
+        customers = JSON.parse(reader.result);
+        saveData();
+      } catch { alert("Invalid file."); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
 }
 </script>
-
 </body>
 </html>
