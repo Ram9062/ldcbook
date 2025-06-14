@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Customer Balance Book</title>
+  <title>LDC BOOK - Offline Version</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <style>
     body { background-color: #f8f9fa; }
@@ -11,23 +11,33 @@
     .customer-card:hover { transform: scale(1.02); }
     .credit { color: green; }
     .debit { color: red; }
+    .header-bar { background: #007bff; color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
+    .transaction-list { max-height: 300px; overflow-y: auto; }
     .balance-field { width: 120px; text-align: right; font-family: monospace; }
   </style>
 </head>
 <body>
 
-<div class="container my-4">
-  <h2 class="text-center mb-4">📒 Customer Balance Book</h2>
+<div class="header-bar">
+  <h4 class="mb-0">📒 LDC BOOK (Offline Demo)</h4>
+</div>
 
-  <div class="mb-3 d-flex">
-    <input type="text" id="searchInput" class="form-control me-2" placeholder="Search customer" oninput="updateCustomerList()">
+<div class="container my-4">
+  <div class="d-flex justify-content-between mb-3">
+    <input type="text" id="searchInput" class="form-control me-2" placeholder="Search Customer" oninput="updateCustomerList()">
     <button class="btn btn-success" onclick="showAddCustomer()">+ Add Customer</button>
+  </div>
+
+  <div class="row text-center mb-4">
+    <div class="col-4"><div class="p-3 bg-success text-white rounded"><h6>Total Credit</h6><h4>₹<span id="totalCredit">0</span></h4></div></div>
+    <div class="col-4"><div class="p-3 bg-danger text-white rounded"><h6>Total Debit</h6><h4>₹<span id="totalDebit">0</span></h4></div></div>
+    <div class="col-4"><div class="p-3 bg-info text-white rounded"><h6>Net Balance</h6><h4>₹<span id="totalBalance">0</span></h4></div></div>
   </div>
 
   <div id="customerList"></div>
 </div>
 
-<!-- Add Customer Modal -->
+<!-- Modals for adding, editing customers and transactions -->
 <div class="modal fade" id="addCustomerModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -35,77 +45,87 @@
       <div class="modal-body">
         <input type="text" id="newName" class="form-control mb-2" placeholder="Customer Name">
         <input type="text" id="newPhone" class="form-control mb-3" placeholder="Phone Number (10 digits)">
-        <button class="btn btn-success w-100" onclick="addCustomer()">Add</button>
+        <button class="btn btn-success w-100" onclick="addCustomer()">Add Customer</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Edit Customer Modal -->
 <div class="modal fade" id="editCustomerModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header"><h5>Edit Customer</h5></div>
       <div class="modal-body">
-        <input type="text" id="editName" class="form-control mb-2" placeholder="Customer Name">
-        <input type="text" id="editPhone" class="form-control mb-3" placeholder="Phone Number (10 digits)">
-        <button class="btn btn-success w-100" onclick="saveCustomerEdit()">Save</button>
+        <input type="text" id="editName" class="form-control mb-2">
+        <input type="text" id="editPhone" class="form-control mb-3">
+        <button class="btn btn-success w-100" onclick="saveCustomerEdit()">Save Changes</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Transaction Modal -->
 <div class="modal fade" id="transactionModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header"><h5>Transactions</h5></div>
       <div class="modal-body">
         <div id="transactionList"></div>
-        <div class="my-3">
-          <input type="number" id="transAmount" class="form-control mb-2" placeholder="Amount">
-          <select id="transType" class="form-control mb-2">
-            <option value="credit">Credit</option>
-            <option value="debit">Debit</option>
-          </select>
-          <input type="date" id="transDate" class="form-control mb-2">
-          <button class="btn btn-success w-100" onclick="addTransaction()">Add Transaction</button>
-        </div>
+        <hr>
+        <input type="number" id="transAmount" class="form-control mb-2" placeholder="Amount">
+        <select id="transType" class="form-control mb-2">
+          <option value="credit">Credit</option>
+          <option value="debit">Debit</option>
+        </select>
+        <input type="date" id="transDate" class="form-control mb-2">
+        <button class="btn btn-success w-100" onclick="addTransaction()">Add Transaction</button>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-let customers = JSON.parse(localStorage.getItem('customers') || '{}');
-let currentCustomerId = "", editingCustomerId = "";
+let customers = {
+  "c1": {name: "Ramesh Kumar", phone: "9876543210", transactions: [{type: 'credit', amount: 1000, date: '2025-06-01'},{type: 'debit', amount: 300, date: '2025-06-03'}]},
+  "c2": {name: "Sita Devi", phone: "8765432109", transactions: [{type: 'credit', amount: 2000, date: '2025-06-05'}]},
+  "c3": {name: "Mohan Das", phone: "9123456780", transactions: []}
+};
 
-function saveToStorage() {
-  localStorage.setItem('customers', JSON.stringify(customers));
-}
+let editingCustomerId = "";
+let currentCustomerId = "";
+
+document.addEventListener("DOMContentLoaded", () => {
+  updateCustomerList();
+  updateSummary();
+});
 
 function updateCustomerList() {
-  const customerList = document.getElementById("customerList");
-  customerList.innerHTML = "";
+  const list = document.getElementById("customerList");
+  list.innerHTML = "";
   const keyword = document.getElementById("searchInput").value.toLowerCase();
-  Object.entries(customers).forEach(([id, c]) => {
-    if (!c.name.toLowerCase().includes(keyword)) return;
-    const bal = (c.transactions || []).reduce((s, t) => s + (t.type === 'credit' ? t.amount : -t.amount), 0);
-    const card = `<div class="card customer-card">
+  for (const [id, c] of Object.entries(customers)) {
+    if (!c.name.toLowerCase().includes(keyword)) continue;
+    const bal = (c.transactions || []).reduce((s,t)=>s+(t.type==='credit'?t.amount:-t.amount),0);
+    list.innerHTML += `<div class="card customer-card">
       <div class="card-body d-flex justify-content-between align-items-center">
         <div onclick="viewCustomer('${id}')">
-          <h5>${c.name}</h5><p>${c.phone}</p>
-        </div>
+          <h5>${c.name}</h5><p>${c.phone}</p></div>
         <div class="text-end">
-          <h5 class="${bal >= 0 ? 'credit' : 'debit'} balance-field">₹${bal.toLocaleString()}</h5>
+          <h5 class="${bal>=0?'credit':'debit'} balance-field">₹${bal.toLocaleString()}</h5>
           <div class="mt-2">
             <button class="btn btn-sm btn-primary me-1" onclick="editCustomer('${id}', event)">Edit</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteCustomer('${id}', event)">Delete</button>
+            <button class="btn btn-sm btn-danger me-1" onclick="deleteCustomer('${id}', event)">Delete</button>
           </div>
         </div>
       </div></div>`;
-    customerList.innerHTML += card;
-  });
+  }
+}
+
+function updateSummary() {
+  let cr=0, dr=0;
+  Object.values(customers).forEach(c => (c.transactions||[]).forEach(t => t.type==='credit'?cr+=t.amount:dr+=t.amount));
+  document.getElementById("totalCredit").innerText = cr.toLocaleString();
+  document.getElementById("totalDebit").innerText = dr.toLocaleString();
+  document.getElementById("totalBalance").innerText = (cr-dr).toLocaleString();
 }
 
 function showAddCustomer() {
@@ -115,14 +135,13 @@ function showAddCustomer() {
 function addCustomer() {
   const name = document.getElementById("newName").value.trim();
   const phone = document.getElementById("newPhone").value.trim();
-  if (!name || !/^[0-9]{10}$/.test(phone)) return alert("Invalid Input");
-  const id = Date.now().toString();
-  customers[id] = { name, phone, transactions: [] };
-  saveToStorage();
+  if (!name || !/^[0-9]{10}$/.test(phone)) return alert("Invalid input");
+  const id = "c" + Date.now();
+  customers[id] = {name, phone, transactions: []};
+  updateCustomerList(); updateSummary();
   bootstrap.Modal.getInstance(document.getElementById("addCustomerModal")).hide();
   document.getElementById("newName").value = "";
   document.getElementById("newPhone").value = "";
-  updateCustomerList();
 }
 
 function editCustomer(id, event) {
@@ -137,32 +156,31 @@ function editCustomer(id, event) {
 function saveCustomerEdit() {
   const name = document.getElementById("editName").value.trim();
   const phone = document.getElementById("editPhone").value.trim();
-  if (!name || !/^[0-9]{10}$/.test(phone)) return alert("Invalid Input");
+  if (!name || !/^[0-9]{10}$/.test(phone)) return alert("Invalid input");
   customers[editingCustomerId].name = name;
   customers[editingCustomerId].phone = phone;
-  saveToStorage();
-  bootstrap.Modal.getInstance(document.getElementById("editCustomerModal")).hide();
   updateCustomerList();
+  bootstrap.Modal.getInstance(document.getElementById("editCustomerModal")).hide();
 }
 
 function deleteCustomer(id, event) {
   event.stopPropagation();
-  if (!confirm("Delete this customer?")) return;
-  delete customers[id];
-  saveToStorage();
-  updateCustomerList();
+  if (confirm("Delete customer?")) {
+    delete customers[id];
+    updateCustomerList(); updateSummary();
+  }
 }
 
 function viewCustomer(id) {
   currentCustomerId = id;
   const c = customers[id];
-  const list = (c.transactions || []).sort((a, b) => new Date(b.date) - new Date(a.date)).map((t, i) => {
-    return `<div class='d-flex justify-content-between align-items-center border p-1 mb-1'>
+  const list = c.transactions.sort((a,b)=>new Date(b.date)-new Date(a.date)).map((t,i)=>{
+    return `<div class='d-flex justify-content-between border p-1 mb-1'>
       <div>${t.date}: <span class='${t.type}'>₹${t.amount}</span></div>
       <button class='btn btn-sm btn-danger' onclick='deleteTransaction(${i})'>&times;</button></div>`;
   }).join('');
   document.getElementById("transactionList").innerHTML = list;
-  document.getElementById("transDate").value = new Date().toISOString().slice(0, 10);
+  document.getElementById("transDate").value = new Date().toISOString().slice(0,10);
   new bootstrap.Modal(document.getElementById("transactionModal")).show();
 }
 
@@ -170,24 +188,20 @@ function addTransaction() {
   const amount = parseFloat(document.getElementById("transAmount").value);
   const type = document.getElementById("transType").value;
   const date = document.getElementById("transDate").value;
-  if (!amount || !date) return alert("Invalid");
-  const c = customers[currentCustomerId];
-  c.transactions = c.transactions || [];
-  c.transactions.push({ type, amount, date });
-  saveToStorage();
+  if (!amount || !date) return alert("Invalid input");
+  customers[currentCustomerId].transactions.push({type, amount, date});
+  updateCustomerList(); updateSummary();
   document.getElementById("transAmount").value = "";
   viewCustomer(currentCustomerId);
 }
 
 function deleteTransaction(index) {
-  if (!confirm("Delete this transaction?")) return;
-  const c = customers[currentCustomerId];
-  c.transactions.splice(index, 1);
-  saveToStorage();
-  viewCustomer(currentCustomerId);
+  if (confirm("Delete transaction?")) {
+    customers[currentCustomerId].transactions.splice(index, 1);
+    updateCustomerList(); updateSummary();
+    viewCustomer(currentCustomerId);
+  }
 }
-
-updateCustomerList();
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
