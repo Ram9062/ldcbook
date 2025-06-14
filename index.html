@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>LDC BOOK - Firebase Version</title>
+  <title>LDC BOOK - Final Version</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <style>
     body { background-color: #f8f9fa; }
@@ -116,28 +116,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-
-<!-- Firebase SDKs -->
-<script src="https://www.gstatic.com/firebasejs/11.9.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/11.9.1/firebase-database-compat.js"></script>
-
 <script>
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyCphj2j6QXn3Ks2NPHKkOoc0qS42sCuctU",
-  authDomain: "ldc-maintain.firebaseapp.com",
-  databaseURL: "https://ldc-maintain-default-rtdb.firebaseio.com",
-  projectId: "ldc-maintain",
-  storageBucket: "ldc-maintain.appspot.com",
-  messagingSenderId: "127227068289",
-  appId: "1:127227068289:web:325decf42e3294386d7280",
-  measurementId: "G-WM19FB4H03"
-};
-
-firebase.initializeApp(firebaseConfig);
-const dbRef = firebase.database().ref("customers");
-
-let customers = [];
+let customers = JSON.parse(localStorage.getItem("customers") || "[]");
 let selectedCustomerIndex = null;
 let isOwner = false;
 
@@ -186,25 +166,15 @@ function parseJwt(token) {
 }
 
 function enterReadOnly() { openApp(); }
-
 function openApp() {
   loginModal.style.display = "none";
   headerBar.style.display = "flex";
   mainContent.style.display = "block";
-  loadData();
 }
 
 function logout(){
   localStorage.removeItem("userEmail");
   location.reload();
-}
-
-function loadData() {
-  dbRef.once("value", snapshot => {
-    customers = snapshot.val() || [];
-    updateCustomerList();
-    updateSummary();
-  });
 }
 
 function updateCustomerList() {
@@ -222,7 +192,6 @@ function updateCustomerList() {
 }
 
 function calculateBalance(c){ return c.transactions.reduce((s,t)=>s+(t.type==="credit"?t.amount:-t.amount),0); }
-
 function updateSummary(){
   let cr=0, dr=0;
   customers.forEach(c => c.transactions.forEach(t => t.type==="credit"?cr+=t.amount:dr+=t.amount));
@@ -232,7 +201,6 @@ function updateSummary(){
 }
 
 function showAddCustomer(){ new bootstrap.Modal(addCustomerModal).show(); }
-
 function addCustomer() {
   const name = newName.value.trim(), phone = newPhone.value.trim();
   if (!name || !/^\d{10}$/.test(phone)) return alert("Valid name & 10-digit phone required.");
@@ -313,13 +281,9 @@ function deleteTransaction(index){
 }
 
 function saveData(){
-  dbRef.set(customers, err => {
-    if (err) alert("Error saving data: " + err);
-    else {
-      updateCustomerList();
-      updateSummary();
-    }
-  });
+  localStorage.setItem("customers", JSON.stringify(customers));
+  updateCustomerList();
+  updateSummary();
 }
 
 function exportData(){
@@ -348,6 +312,5 @@ function importData(){
   input.click();
 }
 </script>
-
 </body>
 </html>
