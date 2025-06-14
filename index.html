@@ -28,7 +28,7 @@
       </div>
       <div class="modal-body text-center">
         <div id="g_id_onload"
-             data-client_id="YOUR_GOOGLE_CLIENT_ID"
+             data-client_id="553551404443-b4amscrqdjerd5t6kba627ulu6g52nks.apps.googleusercontent.com"
              data-callback="handleCredentialResponse"
              data-auto_prompt="false"></div>
         <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline"></div>
@@ -125,21 +125,12 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 <script>
-// Firebase config — (keep your same configuration)
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT.firebaseio.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
-};
+const firebaseConfig = { apiKey: "AIzaSyCphj2j6QXn3Ks2NPHKkOoc0qS42sCuctU", authDomain: "ldc-maintain.firebaseapp.com", databaseURL: "https://ldc-maintain-default-rtdb.firebaseio.com", projectId: "ldc-maintain", storageBucket: "ldc-maintain.appspot.com", messagingSenderId: "127227068289", appId: "1:127227068289:web:325decf42e3294386d7280" };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-
 let customers = {}, isOwner = false, currentCustomerId = "", editingCustomerId = "";
 const allowedEmails = ["lokenathdriverscentre@gmail.com", "sarkarraj877@gmail.com", "sarkarkeya505@gmail.com"];
+
 
 window.onload = () => {
   const urlParams = new URLSearchParams(window.location.search);
