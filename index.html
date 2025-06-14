@@ -210,60 +210,24 @@ function editCustomer(id, event) {
   editPhone.value = c.phone;
   new bootstrap.Modal(editCustomerModal).show();
 }
-// Load inbuilt data only if no data exists
-db.ref("customers").once("value", snapshot => {
-  if (!snapshot.exists()) {
-    loadSampleData();
-  }
-});
-
-db.ref("customers").on("value", snapshot => {
-  customers = snapshot.val() || {};
-  updateCustomerList();
-});
-
-function loadSampleData() {
-  const sampleData = {
-    customer1: { name: "Rahul Sharma", phone: "9876543210", transactions: [
-      { type: "credit", amount: 5000, date: "2025-06-10" },
-      { type: "debit", amount: 2000, date: "2025-06-12" }
-    ]},
-    customer2: { name: "Priya Singh", phone: "9123456789", transactions: [
-      { type: "credit", amount: 8000, date: "2025-06-05" },
-      { type: "debit", amount: 3000, date: "2025-06-13" }
-    ]},
-    customer3: { name: "Amit Kumar", phone: "9012345678", transactions: [
-      { type: "credit", amount: 10000, date: "2025-06-01" }
-    ]}
-  };
-  db.ref("customers").set(sampleData);
-}
-
-function updateCustomerList() {
-  customerList.innerHTML = "";
-  const keyword = searchInput.value.toLowerCase();
-  Object.entries(customers).forEach(([id, c]) => {
-    if (!c.name.toLowerCase().includes(keyword)) return;
-    const bal = (c.transactions || []).reduce((s, t) => s + (t.type === 'credit' ? t.amount : -t.amount), 0);
-    const card = `<div class="card customer-card" onclick="viewCustomer('${id}')">
-      <div class="card-body d-flex justify-content-between align-items-center">
-        <div><h5>${c.name}</h5><p>${c.phone}</p></div>
-        <div class="text-end"><h5 class="${bal >= 0 ? 'credit' : 'debit'} balance-field">₹${bal.toLocaleString()}</h5></div>
-      </div></div>`;
-    customerList.innerHTML += card;
-  });
-}
-function showAddCustomer() {
-  new bootstrap.Modal(addCustomerModal).show();
-}
-function addCustomer() {
-  const name = newName.value.trim();
-  const phone = newPhone.value.trim();
+function saveCustomerEdit() {
+  const name = editName.value.trim();
+  const phone = editPhone.value.trim();
   if (!name || !/^[0-9]{10}$/.test(phone)) return alert("Invalid Input");
-  const id = db.ref("customers").push().key;
-  db.ref("customers/" + id).set({ name, phone, transactions: [] });
-  bootstrap.Modal.getInstance(addCustomerModal).hide();
-  newName.value = ""; newPhone.value = "";
+  db.ref("customers/" + editingCustomerId + "/name").set(name);
+  db.ref("customers/" + editingCustomerId + "/phone").set(phone);
+  bootstrap.Modal.getInstance(editCustomerModal).hide();
+}
+function deleteCustomer(id, event) {
+  event.stopPropagation();
+  if (!confirm("Delete this customer?")) return;
+  db.ref("customers/" + id).remove();
+}
+function shareCustomer(id, event) {
+  event.stopPropagation();
+  const shareUrl = `${location.origin}${location.pathname}?viewCustomer=${id}`;
+  navigator.clipboard.writeText(shareUrl);
+  alert("Customer link copied:\n" + shareUrl);
 }
 function viewCustomer(id) {
   currentCustomerId = id;
