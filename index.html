@@ -63,21 +63,9 @@
   </div>
 
   <div class="row text-center mb-4">
-    <div class="col-4">
-      <div class="p-3 bg-success text-white rounded">
-        <h6>Total Credit</h6><h4>₹<span id="totalCredit">0</span></h4>
-      </div>
-    </div>
-    <div class="col-4">
-      <div class="p-3 bg-danger text-white rounded">
-        <h6>Total Debit</h6><h4>₹<span id="totalDebit">0</span></h4>
-      </div>
-    </div>
-    <div class="col-4">
-      <div class="p-3 bg-info text-white rounded">
-        <h6>Net Balance</h6><h4>₹<span id="totalBalance">0</span></h4>
-      </div>
-    </div>
+    <div class="col-4"><div class="p-3 bg-success text-white rounded"><h6>Total Credit</h6><h4>₹<span id="totalCredit">0</span></h4></div></div>
+    <div class="col-4"><div class="p-3 bg-danger text-white rounded"><h6>Total Debit</h6><h4>₹<span id="totalDebit">0</span></h4></div></div>
+    <div class="col-4"><div class="p-3 bg-info text-white rounded"><h6>Net Balance</h6><h4>₹<span id="totalBalance">0</span></h4></div></div>
   </div>
 
   <div id="customerList"></div>
@@ -113,28 +101,14 @@
         <h5>Balance: ₹<span id="modalBalance">0</span></h5>
 
         <div class="row mb-3 owner-only">
-          <div class="col-md-2 mb-1">
-            <input type="number" id="txnAmount" class="form-control" placeholder="Amount">
-          </div>
-          <div class="col-md-2 mb-1">
-            <select id="txnType" class="form-select">
-              <option value="credit">Credit</option>
-              <option value="debit">Debit</option>
-            </select>
-          </div>
-          <div class="col-md-4 mb-1">
-            <input type="datetime-local" id="txnDate" class="form-control">
-          </div>
-          <div class="col-md-2 mb-1">
-            <button class="btn btn-primary w-100" onclick="addTransaction()">Add</button>
-          </div>
+          <div class="col-md-2 mb-1"><input type="number" id="txnAmount" class="form-control" placeholder="Amount"></div>
+          <div class="col-md-2 mb-1"><select id="txnType" class="form-select"><option value="credit">Credit</option><option value="debit">Debit</option></select></div>
+          <div class="col-md-4 mb-1"><input type="datetime-local" id="txnDate" class="form-control"></div>
+          <div class="col-md-2 mb-1"><button class="btn btn-primary w-100" onclick="addTransaction()">Add</button></div>
         </div>
 
         <div class="transaction-list" id="txnList"></div>
-
-        <div class="owner-only mt-3">
-          <button class="btn btn-danger w-100" onclick="deleteCustomer()">Delete Customer</button>
-        </div>
+        <div class="owner-only mt-3"><button class="btn btn-danger w-100" onclick="deleteCustomer()">Delete Customer</button></div>
       </div>
     </div>
   </div>
@@ -145,28 +119,41 @@
 <script>
 let customers = JSON.parse(localStorage.getItem("customers") || "[]");
 let selectedCustomerIndex = null;
-let editTxnIndex = null;
 let isOwner = false;
 
-// Replace with your actual owner email list:
-let allowedEmails = ["lokenathdriverscentre@gmail.com", "xyz@gmail.com", "example@gmail.com"];
+// Allowed Gmail accounts:
+let allowedEmails = [
+  "lokenathdriverscentre@gmail.com",
+  "sarkarraj877@gmail.com",
+  "sarkarkeya505@gmail.com"
+];
 
-window.onload = () => { 
-  updateCustomerList();
-  updateSummary();
+window.onload = () => {
+  const storedEmail = localStorage.getItem("userEmail");
+  if (storedEmail && allowedEmails.includes(storedEmail)) {
+    isOwner = true;
+    document.querySelectorAll('.owner-only').forEach(e => e.style.display = 'block');
+    openApp();
+  } else {
+    updateCustomerList();
+    updateSummary();
+  }
   window.onpopstate = handlePopState;
   handlePopState();
 };
 
-// Google Login handler
 function handleCredentialResponse(response) {
   const data = parseJwt(response.credential);
   const email = data.email;
   if (allowedEmails.includes(email)) {
     isOwner = true;
+    localStorage.setItem("userEmail", email);
     document.querySelectorAll('.owner-only').forEach(e => e.style.display = 'block');
+    openApp();
+  } else {
+    document.getElementById("loginError").innerText = "Unauthorized Email Address!";
+    document.getElementById("loginError").style.display = "block";
   }
-  openApp();
 }
 
 function parseJwt(token) {
@@ -185,7 +172,10 @@ function openApp() {
   mainContent.style.display = "block";
 }
 
-function logout(){ location.reload(); }
+function logout(){
+  localStorage.removeItem("userEmail");
+  location.reload();
+}
 
 function updateCustomerList() {
   const listDiv = customerList;
