@@ -24,14 +24,13 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header justify-content-center">
-        <h3 class="fw-bold text-primary">\ud83d\udcd2 LDC BOOK</h3>
+        <h3 class="fw-bold text-primary">📒 LDC BOOK</h3>
       </div>
       <div class="modal-body text-center">
         <div id="g_id_onload"
              data-client_id="553551404443-b4amscrqdjerd5t6kba627ulu6g52nks.apps.googleusercontent.com"
              data-callback="handleCredentialResponse"
-             data-auto_prompt="false">
-        </div>
+             data-auto_prompt="false"></div>
         <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline"></div>
         <div class="my-3">
           <button class="btn btn-outline-secondary w-100 mb-2" onclick="enterReadOnly()">View Only</button>
@@ -43,7 +42,7 @@
 </div>
 
 <div class="header-bar" id="headerBar" style="display:none;">
-  <h4 class="mb-0">\ud83d\udcd2 LDC BOOK</h4>
+  <h4 class="mb-0">📒 LDC BOOK</h4>
   <div>
     <button class="btn btn-warning btn-sm me-2 owner-only" onclick="exportData()">Backup</button>
     <button class="btn btn-info btn-sm me-2 owner-only" onclick="importData()">Restore</button>
@@ -84,6 +83,20 @@
   </div>
 </div>
 
+<!-- Edit Customer Modal -->
+<div class="modal fade" id="editCustomerModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header"><h5>Edit Customer</h5></div>
+      <div class="modal-body">
+        <input type="text" id="editName" class="form-control mb-2" placeholder="Customer Name">
+        <input type="text" id="editPhone" class="form-control mb-3" placeholder="Phone Number (10 digits)">
+        <button class="btn btn-success w-100" onclick="saveCustomerEdit()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Transaction Modal -->
 <div class="modal fade" id="transactionModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
@@ -97,7 +110,7 @@
             <option value="credit">Credit</option>
             <option value="debit">Debit</option>
           </select>
-          <input type="date" id="transDate" class="form-control mb-2" value="">
+          <input type="date" id="transDate" class="form-control mb-2">
           <button class="btn btn-success w-100" onclick="addTransaction()">Add Transaction</button>
         </div>
       </div>
@@ -113,10 +126,13 @@
 const firebaseConfig = { apiKey: "AIzaSyCphj2j6QXn3Ks2NPHKkOoc0qS42sCuctU", authDomain: "ldc-maintain.firebaseapp.com", databaseURL: "https://ldc-maintain-default-rtdb.firebaseio.com", projectId: "ldc-maintain", storageBucket: "ldc-maintain.appspot.com", messagingSenderId: "127227068289", appId: "1:127227068289:web:325decf42e3294386d7280" };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-let customers = {}, isOwner = false, currentCustomerId = "";
+let customers = {}, isOwner = false, currentCustomerId = "", editingCustomerId = "";
 const allowedEmails = ["lokenathdriverscentre@gmail.com", "sarkarraj877@gmail.com", "sarkarkeya505@gmail.com"];
 
 window.onload = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const viewCustomerId = urlParams.get("viewCustomer");
+  if (viewCustomerId) { openSharedView(viewCustomerId); return; }
   const storedEmail = localStorage.getItem("userEmail");
   if (storedEmail && allowedEmails.includes(storedEmail)) {
     isOwner = true; document.querySelectorAll('.owner-only').forEach(e => e.style.display = 'block'); openApp();
@@ -154,10 +170,19 @@ function updateCustomerList() {
   Object.entries(customers).forEach(([id, c]) => {
     if (!c.name.toLowerCase().includes(keyword)) return;
     const bal = (c.transactions || []).reduce((s,t)=>s+(t.type==='credit'?t.amount:-t.amount), 0);
-    const card = `<div class="card customer-card" onclick="viewCustomer('${id}')">
+    const card = `<div class="card customer-card">
       <div class="card-body d-flex justify-content-between align-items-center">
-        <div><h5>${c.name}</h5><p>${c.phone}</p></div>
-        <h5 class="${bal>=0?'credit':'debit'} balance-field">₹${bal.toLocaleString()}</h5>
+        <div onclick="viewCustomer('${id}')">
+          <h5>${c.name}</h5><p>${c.phone}</p>
+        </div>
+        <div class="text-end">
+          <h5 class="${bal>=0?'credit':'debit'} balance-field">₹${bal.toLocaleString()}</h5>
+          ${isOwner ? `<div class="mt-2">
+            <button class="btn btn-sm btn-primary me-1" onclick="editCustomer('${id}', event)">Edit</button>
+            <button class="btn btn-sm btn-danger me-1" onclick="deleteCustomer('${id}', event)">Delete</button>
+            <button class="btn btn-sm btn-secondary" onclick="shareCustomer('${id}', event)">Share</button>
+          </div>` : ""}
+        </div>
       </div></div>`;
     customerList.innerHTML += card;
   });
@@ -176,6 +201,33 @@ function addCustomer() {
   const id = db.ref("customers").push().key;
   db.ref("customers/"+id).set({ name, phone, transactions: [] });
   bootstrap.Modal.getInstance(addCustomerModal).hide(); newName.value=""; newPhone.value="";
+}
+function editCustomer(id, event) {
+  event.stopPropagation();
+  editingCustomerId = id;
+  const c = customers[id];
+  editName.value = c.name;
+  editPhone.value = c.phone;
+  new bootstrap.Modal(editCustomerModal).show();
+}
+function saveCustomerEdit() {
+  const name = editName.value.trim();
+  const phone = editPhone.value.trim();
+  if (!name || !/^[0-9]{10}$/.test(phone)) return alert("Invalid Input");
+  db.ref("customers/" + editingCustomerId + "/name").set(name);
+  db.ref("customers/" + editingCustomerId + "/phone").set(phone);
+  bootstrap.Modal.getInstance(editCustomerModal).hide();
+}
+function deleteCustomer(id, event) {
+  event.stopPropagation();
+  if (!confirm("Delete this customer?")) return;
+  db.ref("customers/" + id).remove();
+}
+function shareCustomer(id, event) {
+  event.stopPropagation();
+  const shareUrl = `${location.origin}${location.pathname}?viewCustomer=${id}`;
+  navigator.clipboard.writeText(shareUrl);
+  alert("Customer link copied:\n" + shareUrl);
 }
 function viewCustomer(id) {
   currentCustomerId = id;
@@ -235,12 +287,29 @@ function dailySummary() {
   let today = new Date().toISOString().slice(0,10);
   let cr=0, dr=0;
   Object.values(customers).forEach(c => (c.transactions||[]).forEach(t => {
-    if (t.date === today) {
-      if (t.type==='credit') cr+=t.amount; else dr+=t.amount;
-    }
+    if (t.date === today) { if (t.type==='credit') cr+=t.amount; else dr+=t.amount; }
   }));
   alert(`Today's Summary\nCredit: ₹${cr}\nDebit: ₹${dr}\nNet: ₹${cr-dr}`);
 }
+function openSharedView(id) {
+  loginModal.style.display = "none";
+  headerBar.style.display = "none";
+  mainContent.style.display = "block";
+  db.ref("customers/" + id).on("value", snapshot => {
+    const customer = snapshot.val();
+    if (!customer) { alert("Customer not found."); return; }
+    mainContent.innerHTML = `<h3 class="mb-3">Customer: ${customer.name}</h3>
+      <p>Phone: ${customer.phone}</p>
+      <div id="transactionList"></div>`;
+    const list = (customer.transactions || []).sort((a,b)=>new Date(b.date)-new Date(a.date)).map(t => {
+      return `<div class='border p-2 mb-2'>${t.date}: <span class='${t.type}'>₹${t.amount}</span></div>`;
+    }).join('');
+    document.getElementById("transactionList").innerHTML = list;
+    const bal = (customer.transactions||[]).reduce((s,t)=>s+(t.type==='credit'?t.amount:-t.amount),0);
+    mainContent.innerHTML += `<h4 class="mt-3">Balance: ₹${bal.toLocaleString()}</h4>`;
+  });
+}
 </script>
+
 </body>
 </html>
