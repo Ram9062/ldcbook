@@ -137,6 +137,7 @@
     if (storedEmail && allowedEmails.includes(storedEmail)) {
       isOwner = true;
       document.querySelectorAll('.owner-only').forEach(e => e.style.display = 'block');
+      document.querySelector('.btn-outline-secondary').style.display = 'none'; // Hide "View Only" for owner
       openApp(sharedId);
     } else if (sharedId) {
       openApp(sharedId);
@@ -150,6 +151,7 @@
       isOwner = true;
       localStorage.setItem("userEmail", email);
       document.querySelectorAll('.owner-only').forEach(e => e.style.display = 'block');
+      document.querySelector('.btn-outline-secondary').style.display = 'none'; // Hide "View Only" for owner
       openApp();
     } else {
       document.getElementById("loginError").innerText = "Unauthorized Email!";
