@@ -30,8 +30,7 @@
         <div id="g_id_onload"
              data-client_id="553551404443-b4amscrqdjerd5t6kba627ulu6g52nks.apps.googleusercontent.com"
              data-callback="handleCredentialResponse"
-             data-auto_prompt="false">
-        </div>
+             data-auto_prompt="false"></div>
         <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline"></div>
         <div class="my-3">
           <button class="btn btn-outline-secondary w-100 mb-2" onclick="enterReadOnly()">View Only</button>
@@ -52,12 +51,12 @@
 </div>
 
 <div id="mainContent" class="container my-4" style="display:none;">
-  <div class="d-flex justify-content-between mb-3">
+  <div class="d-flex justify-content-between mb-3" id="searchBar">
     <input type="text" id="searchInput" class="form-control me-2" placeholder="Search" oninput="updateCustomerList()">
     <button class="btn btn-success owner-only" onclick="showAddCustomer()">+ Add Customer</button>
   </div>
 
-  <div class="row text-center mb-4">
+  <div class="row text-center mb-4" id="summaryBoxes">
     <div class="col-4"><div class="p-3 bg-success text-white rounded"><h6>Total Credit</h6><h4>₹<span id="totalCredit">0</span></h4></div></div>
     <div class="col-4"><div class="p-3 bg-danger text-white rounded"><h6>Total Debit</h6><h4>₹<span id="totalDebit">0</span></h4></div></div>
     <div class="col-4"><div class="p-3 bg-info text-white rounded"><h6>Net Balance</h6><h4>₹<span id="totalBalance">0</span></h4></div></div>
@@ -110,11 +109,6 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
-
-<!-- Your App Logic -->
-<!-- All content before remains the same, including head and styles -->
-
-<!-- Inside <script> tag at the bottom, replace everything with: -->
 
 <script>
   const firebaseConfig = {
@@ -171,7 +165,9 @@
     return JSON.parse(jsonPayload);
   }
 
-  function enterReadOnly() { openApp(); }
+  function enterReadOnly() {
+    openApp(new URLSearchParams(window.location.search).get("view"));
+  }
 
   function openApp(sharedId = "") {
     loginModal.style.display = "none";
@@ -180,11 +176,18 @@
 
     db.ref("customers").on("value", snapshot => {
       customers = snapshot.val() || {};
-      updateCustomerList();
-      updateSummary();
 
       if (sharedId && customers[sharedId]) {
+        // Hide other data in shared mode
+        document.getElementById("searchBar").style.display = "none";
+        document.getElementById("summaryBoxes").style.display = "none";
+        document.getElementById("customerList").style.display = "none";
+        document.querySelectorAll('.owner-only').forEach(e => e.style.display = "none");
+
         viewCustomer(sharedId);
+      } else {
+        updateCustomerList();
+        updateSummary();
       }
     });
   }
@@ -352,3 +355,5 @@
     alert(`Today's Summary\nCredit: ₹${cr}\nDebit: ₹${dr}\nNet: ₹${cr - dr}`);
   }
 </script>
+</body>
+</html>
