@@ -34,8 +34,8 @@
         </div>
         <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline"></div>
         <div class="my-3">
-  <button id="viewOnlyBtn" class="btn btn-outline-secondary w-100 mb-2" onclick="enterReadOnly()" style="display:none;">View Only</button>
-</div>
+          <button class="btn btn-outline-secondary w-100 mb-2" onclick="enterReadOnly()">View Only</button>
+        </div>
         <div id="loginError" class="text-danger mb-2" style="display:none;"></div>
       </div>
     </div>
@@ -112,6 +112,10 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 
 <!-- Your App Logic -->
+<!-- All content before remains the same, including head and styles -->
+
+<!-- Inside <script> tag at the bottom, replace everything with: -->
+
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyCphj2j6QXn3Ks2NPHKkOoc0qS42sCuctU",
@@ -168,6 +172,7 @@
   }
 
   function enterReadOnly() { openApp(); }
+
   function openApp(sharedId = "") {
     loginModal.style.display = "none";
     headerBar.style.display = "flex";
@@ -218,10 +223,12 @@
   }
 
   function showAddCustomer() {
+    if (!isOwner) return alert("View-only mode: Cannot add customer.");
     new bootstrap.Modal(addCustomerModal).show();
   }
 
   function addCustomer() {
+    if (!isOwner) return alert("View-only mode: Cannot add customer.");
     const name = newName.value.trim();
     const phone = newPhone.value.trim();
     if (!name || !/^[0-9]{10}$/.test(phone)) return alert("Invalid Input");
@@ -251,10 +258,17 @@
         <button class="btn btn-sm btn-outline-secondary" onclick="copyShareLink('${id}')">Share Link</button>
       </div>
     `;
+
+    const transInputs = transactionModal.querySelectorAll('input, select, button');
+    transInputs.forEach(el => {
+      if (!isOwner && el.closest('.modal-body')) el.disabled = true;
+    });
+
     new bootstrap.Modal(transactionModal).show();
   }
 
   function addTransaction() {
+    if (!isOwner) return alert("View-only mode: Cannot add transactions.");
     const amount = parseFloat(transAmount.value);
     const type = transType.value;
     const date = transDate.value;
@@ -268,6 +282,7 @@
   }
 
   function deleteTransaction(index) {
+    if (!isOwner) return alert("View-only mode: Cannot delete transactions.");
     if (!confirm("Delete this transaction?")) return;
     const c = customers[currentCustomerId];
     c.transactions.splice(index, 1);
@@ -276,6 +291,7 @@
   }
 
   function editCustomerName() {
+    if (!isOwner) return alert("View-only mode: Cannot edit name.");
     const newName = prompt("Enter new name:", customers[currentCustomerId].name);
     if (!newName) return;
     customers[currentCustomerId].name = newName.trim();
@@ -292,6 +308,7 @@
   }
 
   function exportData() {
+    if (!isOwner) return alert("View-only mode: Cannot export.");
     const dataStr = JSON.stringify(customers, null, 2);
     const blob = new Blob([dataStr], { type: "application/json" });
     const a = document.createElement("a");
@@ -301,6 +318,7 @@
   }
 
   function importData() {
+    if (!isOwner) return alert("View-only mode: Cannot import.");
     const input = document.createElement("input");
     input.type = "file"; input.accept = ".json";
     input.onchange = e => {
@@ -321,6 +339,7 @@
   }
 
   function dailySummary() {
+    if (!isOwner) return alert("View-only mode: Cannot view summary.");
     let today = new Date().toISOString().slice(0, 10);
     let cr = 0, dr = 0;
     Object.values(customers).forEach(c =>
@@ -333,5 +352,3 @@
     alert(`Today's Summary\nCredit: ₹${cr}\nDebit: ₹${dr}\nNet: ₹${cr - dr}`);
   }
 </script>
-</body>
-</html>
