@@ -246,15 +246,17 @@
     newName.value = ""; newPhone.value = "";
   }
 
-  function viewCustomer(id) {
+ function viewCustomer(id) {
     currentCustomerId = id;
     const c = customers[id];
-    const list = (c.transactions || []).sort((a, b) => new Date(b.date) - new Date(a.date)).map((t, i) => {
-      return `<div class='d-flex justify-content-between align-items-center border p-1 mb-1'>
-        <div>${t.date}: <span class='${t.type}'>₹${t.amount}</span></div>
-        ${isOwner ? `<button class='btn btn-sm btn-danger' onclick='deleteTransaction(${i})'>&times;</button>` : ""}
-      </div>`;
-    }).join('');
+    const list = (c.transactions || [])
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .map((t, i) => {
+        return `<div class='d-flex justify-content-between align-items-center border p-1 mb-1'>
+          <div>${t.date}: <span class='${t.type}'>₹${t.amount}</span></div>
+          ${isOwner ? `<button class='btn btn-sm btn-danger' onclick='deleteTransaction(${i})'>&times;</button>` : ""}
+        </div>`;
+      }).join('');
     transactionList.innerHTML = list;
     transDate.value = new Date().toISOString().slice(0, 10);
 
@@ -262,7 +264,10 @@
     modalHeader.innerHTML = `
       <h5>${c.name} - Transactions</h5>
       <div>
-        ${isOwner ? `<button class="btn btn-sm btn-outline-primary me-2" onclick="editCustomerName()">Edit Name</button>` : ""}
+        ${isOwner ? `
+          <button class="btn btn-sm btn-outline-primary me-2" onclick="editCustomerName()">Edit Name</button>
+          <button class="btn btn-sm btn-danger me-2" onclick="deleteCustomer()">Delete Customer</button>
+        ` : ""}
         <button class="btn btn-sm btn-outline-secondary" onclick="copyShareLink('${id}')">Share Link</button>
       </div>
     `;
@@ -273,6 +278,22 @@
     });
 
     new bootstrap.Modal(transactionModal).show();
+  }
+
+  function deleteCustomer() {
+    if (!isOwner) return alert("View-only mode: Cannot delete customer.");
+    if (!confirm("Are you sure you want to delete this customer and all their transactions?")) return;
+
+    db.ref("customers/" + currentCustomerId).remove()
+      .then(() => {
+        bootstrap.Modal.getInstance(transactionModal).hide();
+        updateCustomerList();
+        updateSummary();
+        alert("Customer deleted.");
+      })
+      .catch(err => {
+        alert("Failed to delete customer: " + err);
+      });
   }
 
   function addTransaction() {
