@@ -130,6 +130,8 @@
     "sarkarkeya505@gmail.com"
   ];
 
+  const viewOnlyPassword = "ldc2025"; // Change this password as needed
+
   window.onload = () => {
     const storedEmail = localStorage.getItem("userEmail");
     const sharedId = new URLSearchParams(window.location.search).get("view");
@@ -137,7 +139,6 @@
     if (storedEmail && allowedEmails.includes(storedEmail)) {
       isOwner = true;
       document.querySelectorAll('.owner-only').forEach(e => e.style.display = 'block');
-      document.querySelector('.btn-outline-secondary').style.display = 'none'; // Hide "View Only" for owner
       openApp(sharedId);
     } else if (sharedId) {
       openApp(sharedId);
@@ -151,7 +152,6 @@
       isOwner = true;
       localStorage.setItem("userEmail", email);
       document.querySelectorAll('.owner-only').forEach(e => e.style.display = 'block');
-      document.querySelector('.btn-outline-secondary').style.display = 'none'; // Hide "View Only" for owner
       openApp();
     } else {
       document.getElementById("loginError").innerText = "Unauthorized Email!";
@@ -168,6 +168,11 @@
   }
 
   function enterReadOnly() {
+    const password = prompt("Enter view-only password:");
+    if (password !== viewOnlyPassword) {
+      alert("Incorrect password!");
+      return;
+    }
     openApp(new URLSearchParams(window.location.search).get("view"));
   }
 
@@ -180,12 +185,10 @@
       customers = snapshot.val() || {};
 
       if (sharedId && customers[sharedId]) {
-        // Hide other data in shared mode
         document.getElementById("searchBar").style.display = "none";
         document.getElementById("summaryBoxes").style.display = "none";
         document.getElementById("customerList").style.display = "none";
         document.querySelectorAll('.owner-only').forEach(e => e.style.display = "none");
-
         viewCustomer(sharedId);
       } else {
         updateCustomerList();
