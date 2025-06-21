@@ -75,6 +75,7 @@
     <div class="modal-content">
       <div class="modal-header"><h5>Add Customer</h5></div>
       <div class="modal-body">
+        <button class="btn btn-outline-primary mb-3 w-100" onclick="pickFromContacts()">📇 Pick from Contacts</button>
         <input type="text" id="newName" class="form-control mb-2" placeholder="Customer Name">
         <input type="text" id="newPhone" class="form-control mb-3" placeholder="Phone Number (10 digits)">
         <button class="btn btn-success w-100" onclick="addCustomer()">Add Customer</button>
@@ -380,6 +381,35 @@
       }));
     alert(`Today's Summary\nCredit: ₹${cr}\nDebit: ₹${dr}\nNet: ₹${cr - dr}`);
   }
+async function pickFromContacts() {
+  if (!("contacts" in navigator && "ContactsManager" in window)) {
+    alert("Contact picker not supported on this device/browser.");
+    return;
+  }
+
+  try {
+    const props = ["name", "tel"];
+    const opts = { multiple: false };
+
+    const contacts = await navigator.contacts.select(props, opts);
+    if (contacts.length === 0) return;
+
+    const contact = contacts[0];
+    const name = contact.name ? contact.name[0] : "";
+    const phone = contact.tel ? contact.tel[0].replace(/\D/g, '').slice(-10) : "";
+
+    if (!/^\d{10}$/.test(phone)) {
+      alert("Could not extract a valid 10-digit phone number.");
+      return;
+    }
+
+    document.getElementById("newName").value = name;
+    document.getElementById("newPhone").value = phone;
+  } catch (err) {
+    alert("Failed to access contacts: " + err.message);
+  }
+}
+
 </script>
 </body>
 </html>
