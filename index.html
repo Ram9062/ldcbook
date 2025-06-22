@@ -75,10 +75,13 @@
     <div class="modal-content">
       <div class="modal-header"><h5>Add Customer</h5></div>
       <div class="modal-body">
-        <input type="text" id="newName" class="form-control mb-2" placeholder="Customer Name">
-        <input type="text" id="newPhone" class="form-control mb-3" placeholder="Phone Number (10 digits)">
-        <button class="btn btn-success w-100" onclick="addCustomer()">Add Customer</button>
-      </div>
+  <button class="btn btn-outline-primary mb-2 w-100" onclick="pickContact()">📇 Pick from Contacts</button>
+  <button class="btn btn-outline-secondary mb-3 w-100" onclick="uploadCSV()">📤 Import CSV</button>
+
+  <input type="text" id="newName" class="form-control mb-2" placeholder="Customer Name">
+  <input type="text" id="newPhone" class="form-control mb-3" placeholder="Phone Number (10 digits)">
+  <button class="btn btn-success w-100" onclick="addCustomer()">Add Customer</button>
+</div>
     </div>
   </div>
 </div>
@@ -89,8 +92,8 @@
     <div class="modal-content">
       <div class="modal-header"><h5>Transactions</h5></div>
       <div class="modal-body">
-        <div id="transactionList" class="transaction-list mb-3"></div>
-        <div>
+        <div id="transactionList"></div>
+        <div class="my-3">
           <input type="number" id="transAmount" class="form-control mb-2" placeholder="Amount">
           <select id="transType" class="form-control mb-2">
             <option value="credit">Credit</option>
@@ -104,6 +107,7 @@
   </div>
 </div>
 
+<!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -123,41 +127,25 @@
   const db = firebase.database();
 
   let customers = {}, isOwner = false, currentCustomerId = "";
-
   const allowedEmails = [
     "lokenathdriverscentre@gmail.com",
     "sarkarraj877@gmail.com",
     "sarkarkeya505@gmail.com"
   ];
-  const viewOnlyPassword = "8991";
+
+  const viewOnlyPassword = "8991"; // Change this password as needed
 
   window.onload = () => {
     const storedEmail = localStorage.getItem("userEmail");
-    const sharedId = new URLSearchParams(location.search).get("view");
+    const sharedId = new URLSearchParams(window.location.search).get("view");
 
     if (storedEmail && allowedEmails.includes(storedEmail)) {
       isOwner = true;
-      showOwnerUI();
+      document.querySelectorAll('.owner-only').forEach(e => e.style.display = 'block');
       openApp(sharedId);
     } else if (sharedId) {
       openApp(sharedId);
     }
-
-    // Listen for back/forward navigation
-    window.onpopstate = () => {
-      const viewId = new URLSearchParams(location.search).get("view");
-      if (viewId && customers[viewId]) {
-        viewCustomer(viewId, false);
-      } else {
-        // Hide modal and show main lists
-        bootstrap.Modal.getInstance(transactionModal)?.hide();
-        document.getElementById("searchBar").style.display = "";
-        document.getElementById("summaryBoxes").style.display = "";
-        document.getElementById("customerList").style.display = "";
-        updateCustomerList();
-        updateSummary();
-      }
-    };
   };
 
   function handleCredentialResponse(response) {
@@ -166,7 +154,7 @@
     if (allowedEmails.includes(email)) {
       isOwner = true;
       localStorage.setItem("userEmail", email);
-      showOwnerUI();
+      document.querySelectorAll('.owner-only').forEach(e => e.style.display = 'block');
       openApp();
     } else {
       document.getElementById("loginError").innerText = "Unauthorized Email!";
@@ -174,46 +162,42 @@
     }
   }
 
-  function showOwnerUI() {
-    document.querySelectorAll('.owner-only').forEach(e => e.style.display = 'inline-block');
-  }
-
   function parseJwt(token) {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+    var base64Url = token.split('.')[1];
+    var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    var jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
       '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
     return JSON.parse(jsonPayload);
   }
 
   function enterReadOnly() {
     const password = prompt("Enter view-only password:");
-    if (password === viewOnlyPassword) {
-      openApp(new URLSearchParams(location.search).get("view"));
-    } else alert("Incorrect password!");
+    if (password !== viewOnlyPassword) {
+      alert("Incorrect password!");
+      return;
+    }
+    openApp(new URLSearchParams(window.location.search).get("view"));
   }
 
-  function openApp(viewId = "") {
+  function openApp(sharedId = "") {
     loginModal.style.display = "none";
     headerBar.style.display = "flex";
     mainContent.style.display = "block";
 
-    db.ref("customers").on("value", snap => {
-      customers = snap.val() || {};
-      if (viewId && customers[viewId]) {
-        viewCustomer(viewId, false);
+    db.ref("customers").on("value", snapshot => {
+      customers = snapshot.val() || {};
+
+      if (sharedId && customers[sharedId]) {
+        document.getElementById("searchBar").style.display = "none";
+        document.getElementById("summaryBoxes").style.display = "none";
+        document.getElementById("customerList").style.display = "none";
+        document.querySelectorAll('.owner-only').forEach(e => e.style.display = "none");
+        viewCustomer(sharedId);
       } else {
-        showMain();
+        updateCustomerList();
+        updateSummary();
       }
     });
-  }
-
-  function showMain() {
-    document.getElementById("searchBar").style.display = "";
-    document.getElementById("summaryBoxes").style.display = "";
-    document.getElementById("customerList").style.display = "";
-    updateCustomerList();
-    updateSummary();
   }
 
   function logout() {
@@ -222,33 +206,31 @@
   }
 
   function updateCustomerList() {
-    const listDiv = document.getElementById("customerList");
-    const keyword = document.getElementById("searchInput").value.toLowerCase();
-    listDiv.innerHTML = '';
+    customerList.innerHTML = "";
+    const keyword = searchInput.value.toLowerCase();
     Object.entries(customers).forEach(([id, c]) => {
       if (!c.name.toLowerCase().includes(keyword)) return;
-      const bal = (c.transactions || []).reduce((s, t) =>
-        s + (t.type === 'credit' ? t.amount : -t.amount), 0);
-      const card = document.createElement('div');
-      card.className = 'card customer-card';
-      card.onclick = () => viewCustomer(id);
-      card.innerHTML = `
+      const bal = (c.transactions || []).reduce((s, t) => s + (t.type === 'credit' ? t.amount : -t.amount), 0);
+      const card = `<div class="card customer-card" onclick="viewCustomer('${id}')">
         <div class="card-body d-flex justify-content-between align-items-center">
-          <div><h5>${c.name}</h5><p>${c.phone}</p></div>
+          <div>
+            <h5>${c.name}</h5>
+            <p>${c.phone}</p>
+          </div>
           <h5 class="${bal >= 0 ? 'credit' : 'debit'} balance-field">₹${bal.toLocaleString()}</h5>
-        </div>`;
-      listDiv.appendChild(card);
+        </div>
+      </div>`;
+      customerList.innerHTML += card;
     });
   }
 
   function updateSummary() {
     let cr = 0, dr = 0;
-    Object.values(customer?s).flatMap(c => c.transactions||[]).forEach(t => {
-      t.type==='credit'? cr+=t.amount: dr+=t.amount;
-    });
-    document.getElementById("totalCredit").textContent = cr.toLocaleString();
-    document.getElementById("totalDebit").textContent = dr.toLocaleString();
-    document.getElementById("totalBalance").textContent = (cr-dr).toLocaleString();
+    Object.values(customers).forEach(c =>
+      (c.transactions || []).forEach(t => t.type === 'credit' ? cr += t.amount : dr += t.amount));
+    totalCredit.textContent = cr.toLocaleString();
+    totalDebit.textContent = dr.toLocaleString();
+    totalBalance.textContent = (cr - dr).toLocaleString();
   }
 
   function showAddCustomer() {
@@ -257,119 +239,200 @@
   }
 
   function addCustomer() {
-    if (!isOwner) return alert("Cannot in view-only");
+    if (!isOwner) return alert("View-only mode: Cannot add customer.");
     const name = newName.value.trim();
     const phone = newPhone.value.trim();
     if (!name || !/^[0-9]{10}$/.test(phone)) return alert("Invalid Input");
     const id = db.ref("customers").push().key;
-    db.ref(`customers/${id}`).set({ name, phone, transactions: [] });
+    db.ref("customers/" + id).set({ name, phone, transactions: [] });
     bootstrap.Modal.getInstance(addCustomerModal).hide();
-    newName.value = '';
-    newPhone.value = '';
+    newName.value = ""; newPhone.value = "";
+  }
+// Contact Picker API (for Android Chrome)
+async function pickContact() {
+  if (!('contacts' in navigator && 'ContactsManager' in window)) {
+    alert("Contact Picker API not supported on this browser. Try CSV upload instead.");
+    return;
   }
 
-  function viewCustomer(id, push = true) {
-    currentCustomerId = id;
-    if (push) history.pushState({ view:id }, '', `?view=${id}`);
-    const c = customers[id];
-    const transDiv = document.getElementById("transactionList");
-    transDiv.innerHTML = (c.transactions || [])
-      .sort((a,b)=> new Date(b.date) - new Date(a.date))
-      .map((t,i) => `
-        <div class="d-flex justify-content-between align-items-center border p-1 mb-1">
-          <div>${t.date}: <span class="${t.type}">₹${t.amount}</span></div>
-          ${isOwner?`<button class="btn btn-sm btn-danger" onclick="deleteTransaction(${i})">&times;</button>`:''}
-        </div>`).join('');
-    document.getElementById("transDate").value = new Date().toISOString().slice(0,10);
+  try {
+    const props = ['name', 'tel'];
+    const opts = { multiple: false };
+    const contact = await navigator.contacts.select(props, opts);
+    if (contact.length) {
+      newName.value = contact[0].name[0] || "";
+      newPhone.value = (contact[0].tel[0] || "").replace(/\D/g, '').slice(-10); // 10 digit formatting
+    }
+  } catch (error) {
+    console.error("Contact selection failed:", error);
+  }
+}
 
-    const header = transactionModal.querySelector('.modal-header');
-    header.innerHTML = `
+// CSV Upload Fallback
+function uploadCSV() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".csv";
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = event => {
+      const lines = event.target.result.split("\n").map(l => l.trim()).filter(l => l);
+      if (lines.length < 1) return alert("CSV is empty or invalid.");
+      const headers = lines[0].toLowerCase().split(",");
+      const nameIndex = headers.findIndex(h => h.includes("name"));
+      const phoneIndex = headers.findIndex(h => h.includes("phone"));
+      if (nameIndex === -1 || phoneIndex === -1) return alert("CSV must contain 'name' and 'phone' columns.");
+
+      const [_, ...rows] = lines;
+      const entries = rows.map(line => {
+        const cols = line.split(",");
+        return {
+          name: cols[nameIndex].trim(),
+          phone: cols[phoneIndex].replace(/\D/g, '').slice(-10)
+        };
+      });
+
+      // Auto-fill first contact, and ask if user wants to import all
+      if (entries.length) {
+        newName.value = entries[0].name;
+        newPhone.value = entries[0].phone;
+
+        if (confirm(`Import ${entries.length} contacts to LDC BOOK? First contact is pre-filled.`)) {
+          entries.forEach(entry => {
+            if (entry.name && /^[0-9]{10}$/.test(entry.phone)) {
+              const id = db.ref("customers").push().key;
+              db.ref("customers/" + id).set({ name: entry.name, phone: entry.phone, transactions: [] });
+            }
+          });
+          alert("Contacts imported successfully.");
+          bootstrap.Modal.getInstance(addCustomerModal).hide();
+          updateCustomerList();
+          updateSummary();
+        }
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+ function viewCustomer(id) {
+    currentCustomerId = id;
+    const c = customers[id];
+    const list = (c.transactions || [])
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .map((t, i) => {
+        return `<div class='d-flex justify-content-between align-items-center border p-1 mb-1'>
+          <div>${t.date}: <span class='${t.type}'>₹${t.amount}</span></div>
+          ${isOwner ? `<button class='btn btn-sm btn-danger' onclick='deleteTransaction(${i})'>&times;</button>` : ""}
+        </div>`;
+      }).join('');
+    transactionList.innerHTML = list;
+    transDate.value = new Date().toISOString().slice(0, 10);
+
+    const modalHeader = transactionModal.querySelector('.modal-header');
+    modalHeader.innerHTML = `
       <h5>${c.name} - Transactions</h5>
       <div>
-        ${isOwner?`
+        ${isOwner ? `
           <button class="btn btn-sm btn-outline-primary me-2" onclick="editCustomerName()">Edit Name</button>
           <button class="btn btn-sm btn-danger me-2" onclick="deleteCustomer()">Delete Customer</button>
-        `:''}
+        ` : ""}
         <button class="btn btn-sm btn-outline-secondary" onclick="copyShareLink('${id}')">Share Link</button>
-      </div>`;
-    Array.from(transactionModal.querySelectorAll('input, select, button'))
-      .forEach(e => e.disabled = !isOwner && e.closest('.modal-body'));
+      </div>
+    `;
 
-    document.getElementById("searchBar").style.display = 'none';
-    document.getElementById("summaryBoxes").style.display = 'none';
-    document.getElementById("customerList").style.display = 'none';
+    const transInputs = transactionModal.querySelectorAll('input, select, button');
+    transInputs.forEach(el => {
+      if (!isOwner && el.closest('.modal-body')) el.disabled = true;
+    });
 
     new bootstrap.Modal(transactionModal).show();
   }
 
   function deleteCustomer() {
-    if (!isOwner) return alert("Cannot in view-only");
-    if (!confirm("Delete all transactions & customer?")) return;
-    db.ref(`customers/${currentCustomerId}`).remove()
+    if (!isOwner) return alert("View-only mode: Cannot delete customer.");
+    if (!confirm("Are you sure you want to delete this customer and all their transactions?")) return;
+
+    db.ref("customers/" + currentCustomerId).remove()
       .then(() => {
         bootstrap.Modal.getInstance(transactionModal).hide();
-        history.pushState({}, '', location.pathname);
-        showMain();
+        updateCustomerList();
+        updateSummary();
+        alert("Customer deleted.");
       })
-      .catch(err => alert("Failed to delete customer: " + err));
+      .catch(err => {
+        alert("Failed to delete customer: " + err);
+      });
   }
 
   function addTransaction() {
-    if (!isOwner) return alert("Cannot in view-only");
-    const amt = parseFloat(transAmount.value);
+    if (!isOwner) return alert("View-only mode: Cannot add transactions.");
+    const amount = parseFloat(transAmount.value);
     const type = transType.value;
     const date = transDate.value;
-    if (!amt || !date) return alert("Invalid input");
+    if (!amount || !date) return alert("Invalid");
     const c = customers[currentCustomerId];
     c.transactions = c.transactions || [];
-    c.transactions.push({ type, amount: amt, date });
-    db.ref(`customers/${currentCustomerId}`).set(c).then(() => viewCustomer(currentCustomerId, false));
+    c.transactions.push({ type, amount, date });
+    db.ref("customers/" + currentCustomerId).set(c);
+    transAmount.value = "";
+    viewCustomer(currentCustomerId);
   }
 
   function deleteTransaction(index) {
-    if (!isOwner) return alert("Cannot in view-only");
-    if (!confirm("Delete transaction?")) return;
+    if (!isOwner) return alert("View-only mode: Cannot delete transactions.");
+    if (!confirm("Delete this transaction?")) return;
     const c = customers[currentCustomerId];
-    c.transactions.splice(index,1);
-    db.ref(`customers/${currentCustomerId}`).set(c).then(() => viewCustomer(currentCustomerId, false));
+    c.transactions.splice(index, 1);
+    db.ref("customers/" + currentCustomerId).set(c);
+    viewCustomer(currentCustomerId);
   }
 
   function editCustomerName() {
-    if (!isOwner) return alert("Cannot in view-only");
-    const newNameStr = prompt("Enter new name:", customers[currentCustomerId].name);
-    if (!newNameStr) return;
-    customers[currentCustomerId].name = newNameStr.trim();
-    db.ref(`customers/${currentCustomerId}`).update({ name: newNameStr.trim() })
-      .then(() => viewCustomer(currentCustomerId, false));
+    if (!isOwner) return alert("View-only mode: Cannot edit name.");
+    const newName = prompt("Enter new name:", customers[currentCustomerId].name);
+    if (!newName) return;
+    customers[currentCustomerId].name = newName.trim();
+    db.ref("customers/" + currentCustomerId).update({ name: newName.trim() });
+    updateCustomerList();
+    viewCustomer(currentCustomerId);
   }
 
   function copyShareLink(id) {
-    const url = `${location.origin}${location.pathname}?view=${id}`;
-    navigator.clipboard.writeText(url).then(()=> alert("Share link copied!"));
+    const link = `${location.origin}${location.pathname}?view=${id}`;
+    navigator.clipboard.writeText(link).then(() => {
+      alert("Share link copied!");
+    });
   }
 
   function exportData() {
-    if (!isOwner) return alert("Cannot in view-only");
-    const blob = new Blob([JSON.stringify(customers,null,2)], { type:'application/json' });
-    const a = document.createElement('a');
+    if (!isOwner) return alert("View-only mode: Cannot export.");
+    const dataStr = JSON.stringify(customers, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `backup_${new Date().toISOString().slice(0,10)}.json`;
+    a.download = `backup_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
   }
 
   function importData() {
-    if (!isOwner) return alert("Cannot in view-only");
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = '.json';
+    if (!isOwner) return alert("View-only mode: Cannot import.");
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = ".json";
     input.onchange = e => {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = evt => {
+      reader.onload = e => {
         try {
-          const data = JSON.parse(evt.target.result);
-          db.ref('customers').set(data);
-        } catch(err) { alert("Import failed: " + err); }
+          const importedData = JSON.parse(e.target.result);
+          db.ref("customers").set(importedData);
+        } catch (err) {
+          alert("Import failed: " + err);
+        }
       };
       reader.readAsText(file);
     };
@@ -377,13 +440,17 @@
   }
 
   function dailySummary() {
-    if (!isOwner) return alert("Cannot in view-only");
-    const today = new Date().toISOString().slice(0,10);
-    let credit = 0, debit = 0;
-    Object.values(customers).flatMap(c => c.transactions||[])
-      .filter(t => t.date === today)
-      .forEach(t => t.type==='credit'? credit += t.amount : debit += t.amount);
-    alert(`Today's Summary (${today})\nCredit: ₹${credit}\nDebit: ₹${debit}\nNet: ₹${credit-debit}`);
+    if (!isOwner) return alert("View-only mode: Cannot view summary.");
+    let today = new Date().toISOString().slice(0, 10);
+    let cr = 0, dr = 0;
+    Object.values(customers).forEach(c =>
+      (c.transactions || []).forEach(t => {
+        if (t.date === today) {
+          if (t.type === 'credit') cr += t.amount;
+          else dr += t.amount;
+        }
+      }));
+    alert(`Today's Summary\nCredit: ₹${cr}\nDebit: ₹${dr}\nNet: ₹${cr - dr}`);
   }
 </script>
 </body>
