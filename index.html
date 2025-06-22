@@ -75,13 +75,14 @@
     <div class="modal-content">
       <div class="modal-header"><h5>Add Customer</h5></div>
       <div class="modal-body">
-  <button class="btn btn-outline-primary mb-2 w-100" onclick="pickContact()">📇 Pick from Contacts</button>
-  <button class="btn btn-outline-secondary mb-3 w-100" onclick="uploadCSV()">📤 Import CSV</button>
+        <input type="text" id="newName" class="form-control mb-2" placeholder="Customer Name">
+        <input type="text" id="newPhone" class="form-control mb-2" placeholder="Phone Number (10 digits)">
+        
+        <!-- Contact Picker Button -->
+        <button id="contactPickerBtn" class="btn btn-outline-primary w-100 mb-2" onclick="pickContact()">📱 Pick from Contacts</button>
 
-  <input type="text" id="newName" class="form-control mb-2" placeholder="Customer Name">
-  <input type="text" id="newPhone" class="form-control mb-3" placeholder="Phone Number (10 digits)">
-  <button class="btn btn-success w-100" onclick="addCustomer()">Add Customer</button>
-</div>
+        <button class="btn btn-success w-100" onclick="addCustomer()">Add Customer</button>
+      </div>
     </div>
   </div>
 </div>
@@ -248,74 +249,27 @@
     bootstrap.Modal.getInstance(addCustomerModal).hide();
     newName.value = ""; newPhone.value = "";
   }
-// Contact Picker API (for Android Chrome)
+
 async function pickContact() {
-  if (!('contacts' in navigator && 'ContactsManager' in window)) {
-    alert("Contact Picker API not supported on this browser. Try CSV upload instead.");
-    return;
-  }
-
   try {
-    const props = ['name', 'tel'];
+    const props = ["name", "tel"];
     const opts = { multiple: false };
-    const contact = await navigator.contacts.select(props, opts);
-    if (contact.length) {
-      newName.value = contact[0].name[0] || "";
-      newPhone.value = (contact[0].tel[0] || "").replace(/\D/g, '').slice(-10); // 10 digit formatting
-    }
-  } catch (error) {
-    console.error("Contact selection failed:", error);
-  }
-}
 
-// CSV Upload Fallback
-function uploadCSV() {
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = ".csv";
-  input.onchange = e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = event => {
-      const lines = event.target.result.split("\n").map(l => l.trim()).filter(l => l);
-      if (lines.length < 1) return alert("CSV is empty or invalid.");
-      const headers = lines[0].toLowerCase().split(",");
-      const nameIndex = headers.findIndex(h => h.includes("name"));
-      const phoneIndex = headers.findIndex(h => h.includes("phone"));
-      if (nameIndex === -1 || phoneIndex === -1) return alert("CSV must contain 'name' and 'phone' columns.");
-
-      const [_, ...rows] = lines;
-      const entries = rows.map(line => {
-        const cols = line.split(",");
-        return {
-          name: cols[nameIndex].trim(),
-          phone: cols[phoneIndex].replace(/\D/g, '').slice(-10)
-        };
-      });
-
-      // Auto-fill first contact, and ask if user wants to import all
-      if (entries.length) {
-        newName.value = entries[0].name;
-        newPhone.value = entries[0].phone;
-
-        if (confirm(`Import ${entries.length} contacts to LDC BOOK? First contact is pre-filled.`)) {
-          entries.forEach(entry => {
-            if (entry.name && /^[0-9]{10}$/.test(entry.phone)) {
-              const id = db.ref("customers").push().key;
-              db.ref("customers/" + id).set({ name: entry.name, phone: entry.phone, transactions: [] });
-            }
-          });
-          alert("Contacts imported successfully.");
-          bootstrap.Modal.getInstance(addCustomerModal).hide();
-          updateCustomerList();
-          updateSummary();
-        }
+    const contacts = await navigator.contacts.select(props, opts);
+    if (contacts.length > 0) {
+      const contact = contacts[0];
+      if (contact.name && contact.name.length > 0) {
+        document.getElementById("newName").value = contact.name[0];
       }
-    };
-    reader.readAsText(file);
-  };
-  input.click();
+      if (contact.tel && contact.tel.length > 0) {
+        // Only keep digits
+        document.getElementById("newPhone").value = contact.tel[0].replace(/\D/g, "").slice(-10);
+      }
+    }
+  } catch (err) {
+    console.error("Contact pick failed", err);
+    alert("Could not pick contact. Make sure your browser supports this feature.");
+  }
 }
 
  function viewCustomer(id) {
