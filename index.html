@@ -258,12 +258,25 @@ async function pickContact() {
     const contacts = await navigator.contacts.select(props, opts);
     if (contacts.length > 0) {
       const contact = contacts[0];
+
       if (contact.name && contact.name.length > 0) {
         document.getElementById("newName").value = contact.name[0];
       }
+
       if (contact.tel && contact.tel.length > 0) {
-        // Only keep digits
-        document.getElementById("newPhone").value = contact.tel[0].replace(/\D/g, "").slice(-10);
+        let rawPhone = contact.tel[0].replace(/\D/g, ""); // Remove non-digits
+
+        // Remove leading country code if it's +91
+        if (rawPhone.startsWith("91") && rawPhone.length > 10) {
+          rawPhone = rawPhone.slice(-10);
+        }
+
+        // Validate it's a proper 10-digit Indian number
+        if (/^[6-9]\d{9}$/.test(rawPhone)) {
+          document.getElementById("newPhone").value = rawPhone;
+        } else {
+          alert("Invalid phone number format. Please enter a 10-digit Indian mobile number.");
+        }
       }
     }
   } catch (err) {
